@@ -1,0 +1,109 @@
+version: '3.9'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      target: build
+    container_name: cryptonex-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      NODE_ENV: development
+      PORT: 5000
+      MONGO_URI: ${MONGO_URI}
+      REDIS_URL: redis://redis:6379
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      MSG91_AUTH_KEY: ${MSG91_AUTH_KEY}
+      MSG91_TEMPLATE_ID: ${MSG91_TEMPLATE_ID}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      AI_SERVICE_URL: http://ai-service:8000
+      AI_SERVICE_SECRET: ${AI_SERVICE_SECRET}
+      CLIENT_URL: http://localhost:3000
+    volumes:
+      - ./backend/src:/app/src
+      - ./backend/logs:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - cryptonex-net
+    command: npm run dev
+
+  ai-service:
+    build: ./ai-service
+    container_name: cryptonex-ai
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      SERVICE_SECRET: ${AI_SERVICE_SECRET}
+      MONGO_URI: ${MONGO_URI}
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - redis
+    networks:
+      - cryptonex-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: cryptonex-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend/src:/app/src
+    environment:
+      VITE_API_URL: http://localhost:5000/api/v1
+      VITE_WS_URL: http://localhost:5000
+    depends_on:
+      - backend
+    networks:
+      - cryptonex-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: cryptonex-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --save 60 1 --loglevel warning
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cryptonex-net
+
+  nginx:
+    image: nginx:alpine
+    container_name: cryptonex-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - cryptonex-net
+
+volumes:
+  redis-data:
+
+networks:
+  cryptonex-net:
+    driver: bridge

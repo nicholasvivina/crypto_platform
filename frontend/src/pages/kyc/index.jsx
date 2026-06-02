@@ -1,0 +1,1 @@
+export { KycPage } from '../payments';

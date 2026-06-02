@@ -1,0 +1,48 @@
+# Env
+.env
+.env.*
+
+!.env.example
+!.env.*.example
+
+# Node
+node_modules/
+npm-debug.log*
+dist/
+build/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.pkl
+*.pt
+*.h5
+**/venv/
+**/.venv/
+
+# Logs
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Secrets
+*.pem
+*.key
+nginx/ssl/
+
+# AI models (large binary files)
+ai-service/app/saved_models/*.pt
+ai-service/app/saved_models/*.pkl
+
+# Project-specific env files
+ai-service/.env
+backend/.env
+frontend/.env

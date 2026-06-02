@@ -1,0 +1,90 @@
+version: '3.9'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      target: production
+    container_name: cryptonex-backend
+    restart: always
+    expose:
+      - "5000"
+    env_file: .env.production
+    volumes:
+      - backend-logs:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - cryptonex-net
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+
+  ai-service:
+    build: ./ai-service
+    container_name: cryptonex-ai
+    restart: always
+    expose:
+      - "8000"
+    env_file: .env.production
+    networks:
+      - cryptonex-net
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: cryptonex-frontend
+    restart: always
+    expose:
+      - "80"
+    networks:
+      - cryptonex-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: cryptonex-redis
+    restart: always
+    volumes:
+      - redis-data:/data
+    command: redis-server --save 60 1 --requirepass ${REDIS_PASSWORD} --loglevel warning
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cryptonex-net
+
+  nginx:
+    image: nginx:alpine
+    container_name: cryptonex-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx-logs:/var/log/nginx
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - cryptonex-net
+
+volumes:
+  redis-data:
+  backend-logs:
+  nginx-logs:
+
+networks:
+  cryptonex-net:
+    driver: bridge
