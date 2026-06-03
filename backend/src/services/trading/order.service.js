@@ -1,10 +1,10 @@
 'use strict';
 const mongoose = require('mongoose');
-const { Order, Trade, Wallet, AuditLog } = require('../../models');
-const { ORDER_TYPES, ORDER_SIDES, ORDER_STATUS, TRANSACTION_TYPES } = require('../../config/constants');
+const { Order, Trade, Wallet} = require('../../models');
+const { ORDER_TYPES, ORDER_SIDES, ORDER_STATUS,} = require('../../config/constants');
 const { calculateTradeFee } = require('./fee.service');
 const { client: redis } = require('../../config/redis');
-const { NotFoundError, ValidationError, ForbiddenError } = require('../../errors');
+const { NotFoundError, ValidationError} = require('../../errors');
 const logger = require('../../config/logger');
 
 /**

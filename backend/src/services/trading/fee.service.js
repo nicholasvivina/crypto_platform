@@ -5,7 +5,7 @@ const { FEE } = require('../../config/constants');
  * Calculate trading fee based on order type and user volume tier.
  * Returns fee amount in quote asset (USDT).
  */
-const calculateTradeFee = ({ quantity, price, side, orderType }) => {
+const calculateTradeFee = ({ quantity, price, side: _side, orderType }) => {
   const rate = orderType === 'limit' ? FEE.MAKER : FEE.TAKER;
   const total = parseFloat(quantity) * parseFloat(price);
   const fee = total * rate;

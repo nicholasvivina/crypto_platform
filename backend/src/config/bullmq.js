@@ -1,5 +1,5 @@
 'use strict';
-const { Queue, Worker, QueueEvents } = require('bullmq');
+const { Queue, Worker } = require('bullmq');
 const config = require('../config');
 const { QUEUES } = require('../config/constants');
 const logger = require('../config/logger');
@@ -23,7 +23,7 @@ const addJob = async (queueName, jobName, data, opts = {}) => {
 
 // SMS Worker
 const smsWorker = new Worker(QUEUES.SMS, async (job) => {
-  const { phone, message, type } = job.data;
+  const { phone, type } = job.data;
   logger.info(`SMS job: type=${type} phone=***${phone?.slice(-4)}`);
   // Actual delivery handled by otp.service.js / sms.service.js
 }, { connection, concurrency: 5 });

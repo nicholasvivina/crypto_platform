@@ -174,7 +174,7 @@ const adminController = {
   },
   getStats: async (req, res, next) => {
     try {
-      const { Trade, Order, Transaction } = require('../models');
+      const { Trade, Order} = require('../models');
       const [userCount, tradeCount, orderCount] = await Promise.all([User.countDocuments(), Trade.countDocuments(), Order.countDocuments()]);
       successResponse(res, { userCount, tradeCount, orderCount });
     } catch (e) { next(e); }

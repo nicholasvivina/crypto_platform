@@ -3,7 +3,7 @@ const { client: redis } = require('../config/redis');
 const { SUPPORTED_PAIRS } = require('../config/constants');
 const logger = require('../config/logger');
 
-const initMarketSocket = (socket, io) => {
+const initMarketSocket = (socket, _io) => {
   socket.on('subscribe:pair', async (pair) => {
     const p = String(pair).toUpperCase();
     if (!SUPPORTED_PAIRS.includes(p)) return;
@@ -26,7 +26,7 @@ const initMarketSocket = (socket, io) => {
   });
 };
 
-const initTradeSocket = (socket, io) => {
+const initTradeSocket = (socket, _io) => {
   if (!socket.userId) return;
 
   socket.on('subscribe:trades', () => {
@@ -34,7 +34,7 @@ const initTradeSocket = (socket, io) => {
   });
 };
 
-const initNotificationSocket = (socket, io) => {
+const initNotificationSocket = (socket, _io) => {
   if (!socket.userId) return;
   socket.join(`notifications:${socket.userId}`);
 };

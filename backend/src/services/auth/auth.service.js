@@ -4,7 +4,7 @@ const { Wallet, AuditLog } = require('../../models');
 const { SUPPORTED_ASSETS } = require('../../config/constants');
 const { issueTokenPair } = require('./token.service');
 const { sendOTP, verifyOTPToken } = require('./otp.service');
-const { AuthError, ConflictError, ValidationError, ForbiddenError } = require('../../errors');
+const { AuthError, ConflictError, ForbiddenError } = require('../../errors');
 const logger = require('../../config/logger');
 
 /**
