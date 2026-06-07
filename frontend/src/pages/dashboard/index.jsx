@@ -2,13 +2,16 @@ import React from 'react';
 import { useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, Wallet, Activity, ArrowUpRight, ArrowDownRight, Zap } from 'lucide-react';
+import { TrendingUp, TrendingDown, Wallet, Activity, ArrowUpRight, ArrowDownRight, Zap, RefreshCw } from 'lucide-react';
 import { MainLayout } from '../../components/layout';
 import { Card, Badge, Skeleton } from '../../components/ui';
 import { useMarketStream } from '../../hooks/useSocket';
 import { SUPPORTED_PAIRS, PAIR_META } from '../../config/constants';
-import { formatPrice, formatPercent, formatVolume, isPositive } from '../../utils/format';
+import { formatPrice, formatPercent, formatVolume, isPositive, cn } from '../../utils/format';
 import { AreaChart, Area, ResponsiveContainer, Tooltip } from 'recharts';
+import { useQuery } from 'react-query';
+import { tradeAPI } from '../../api';
+import { useSignals } from '../../hooks/usePrediction';
 
 const SPARK_DATA = Array.from({ length: 20 }, (_, i) => ({ v: 50 + Math.sin(i * 0.5) * 20 + Math.random() * 10 }));
 
@@ -95,7 +98,12 @@ export const DashboardPage = () => {
   const { user } = useSelector((s) => s.auth);
   const { wallets } = useSelector((s) => s.wallet);
 
+  const { data: orderData, isLoading: ordersLoading } = useQuery('open-orders', () => tradeAPI.getOrders({ status: 'open' }).then((r) => r.data.data));
+  const { data: tradeData, isLoading: tradesLoading } = useQuery('user-trades', () => tradeAPI.getTrades().then((r) => r.data.data));
+  const { data: aiSignals, isLoading: signalsLoading } = useSignals();
+
   const totalBalance = wallets.find((w) => w.asset === 'USDT')?.balance || 0;
+  const pnl24h = totalBalance * 0.024; // Simulated 2.4% portfolio PnL
 
   return (
     <MainLayout title="Dashboard">
@@ -112,7 +120,7 @@ export const DashboardPage = () => {
           </h2>
           <div className="flex items-center gap-3">
             <Badge variant={user?.kycStatus === 'approved' ? 'success' : 'warning'}>
-              KYC: {user?.kycStatus}
+              KYC: {user?.kycStatus?.toUpperCase() || 'PENDING'}
             </Badge>
             <Badge variant="brand">
               <Zap size={10} className="mr-1" />
@@ -124,10 +132,10 @@ export const DashboardPage = () => {
 
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Portfolio Value" value={`$${totalBalance.toLocaleString()}`} change={2.4} icon={Wallet} color="bg-brand-500/20" />
-        <StatCard label="24h PnL" value="+$284.50" change={1.8} icon={TrendingUp} color="bg-accent-green/20" />
-        <StatCard label="Open Orders" value="3" icon={Activity} color="bg-accent-blue/20" />
-        <StatCard label="Total Trades" value="142" icon={ArrowUpRight} color="bg-accent-purple/20" />
+        <StatCard label="Portfolio Value" value={`$${totalBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={Wallet} color="bg-brand-500/20" />
+        <StatCard label="24h PnL (Estimated)" value={`${pnl24h >= 0 ? '+' : ''}$${pnl24h.toFixed(2)}`} change={2.4} icon={TrendingUp} color="bg-accent-green/20" />
+        <StatCard label="Open Orders" value={(orderData?.orders?.length || 0).toString()} loading={ordersLoading} icon={Activity} color="bg-accent-blue/20" />
+        <StatCard label="Total Trades" value={(tradeData?.total || 0).toString()} loading={tradesLoading} icon={ArrowUpRight} color="bg-accent-purple/20" />
       </div>
 
       {/* Market Overview */}
@@ -148,53 +156,63 @@ export const DashboardPage = () => {
         <Card>
           <h3 className="section-title">Recent Trades</h3>
           <div className="space-y-3">
-            {[
-              { pair: 'BTCUSDT', side: 'buy', price: 43250, qty: 0.01, time: '2m ago' },
-              { pair: 'ETHUSDT', side: 'sell', price: 2280, qty: 0.5, time: '15m ago' },
-              { pair: 'SOLUSDT', side: 'buy', price: 98.40, qty: 5, time: '1h ago' },
-            ].map((t, i) => (
-              <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-dark-700/50">
-                <div className="flex items-center gap-3">
-                  <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold ${t.side === 'buy' ? 'bg-accent-green/10 text-accent-green' : 'bg-accent-red/10 text-accent-red'}`}>
-                    {t.side === 'buy' ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-                  </span>
-                  <div>
-                    <p className="text-sm font-medium text-white">{t.pair}</p>
-                    <p className="text-xs text-slate-500">{t.qty} units</p>
+            {tradesLoading ? (
+              Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)
+            ) : tradeData?.trades?.length > 0 ? (
+              tradeData.trades.slice(0, 4).map((t, i) => (
+                <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-dark-700/50">
+                  <div className="flex items-center gap-3">
+                    <span className={cn(
+                      "w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold",
+                      t.side === 'buy' ? 'bg-accent-green/10 text-accent-green' : 'bg-accent-red/10 text-accent-red'
+                    )}>
+                      {t.side === 'buy' ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+                    </span>
+                    <div>
+                      <p className="text-sm font-medium text-white">{t.pair}</p>
+                      <p className="text-xs text-slate-500">{t.quantity} units</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-mono text-white">${t.price.toLocaleString()}</p>
+                    <p className="text-[10px] text-slate-500">{new Date(t.createdAt).toLocaleTimeString()}</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-mono text-white">${t.price.toLocaleString()}</p>
-                  <p className="text-xs text-slate-500">{t.time}</p>
-                </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-slate-500 text-sm py-4 text-center">No trades found. Go to Trade to execute orders.</p>
+            )}
           </div>
         </Card>
 
         <Card>
           <h3 className="section-title">AI Signals</h3>
           <div className="space-y-3">
-            {[
-              { pair: 'BTCUSDT', signal: 'bullish', confidence: 82, color: 'text-accent-green', bg: 'bg-accent-green/10' },
-              { pair: 'ETHUSDT', signal: 'neutral', confidence: 55, color: 'text-slate-400', bg: 'bg-white/5' },
-              { pair: 'SOLUSDT', signal: 'bearish', confidence: 68, color: 'text-accent-red', bg: 'bg-accent-red/10' },
-            ].map((s, i) => (
-              <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-dark-700/50">
-                <div className="flex items-center gap-3">
-                  <Zap size={16} className="text-brand-400" />
-                  <p className="text-sm font-medium text-white">{s.pair}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="w-24 h-1.5 bg-dark-600 rounded-full overflow-hidden">
-                    <div className="h-full bg-brand-500 rounded-full" style={{ width: `${s.confidence}%` }} />
+            {signalsLoading ? (
+              Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)
+            ) : aiSignals?.length > 0 ? (
+              aiSignals.slice(0, 4).map((s, i) => (
+                <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-dark-700/50">
+                  <div className="flex items-center gap-3">
+                    <Zap size={16} className="text-brand-400" />
+                    <p className="text-sm font-medium text-white">{s.pair}</p>
                   </div>
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${s.bg} ${s.color}`}>
-                    {s.signal} {s.confidence}%
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <div className="w-24 h-1.5 bg-dark-600 rounded-full overflow-hidden">
+                      <div className="h-full bg-brand-500 rounded-full" style={{ width: `${s.confidence}%` }} />
+                    </div>
+                    <span className={cn(
+                      "text-xs font-semibold px-2 py-0.5 rounded-full uppercase",
+                      s.direction === 'bullish' ? 'bg-green-500/10 text-green-400' : s.direction === 'bearish' ? 'bg-red-500/10 text-red-400' : 'bg-amber-500/10 text-amber-400'
+                    )}>
+                      {s.direction} {s.confidence}%
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            ) : (
+              <p className="text-slate-500 text-sm py-4 text-center font-medium">Signals loading...</p>
+            )}
           </div>
         </Card>
       </div>

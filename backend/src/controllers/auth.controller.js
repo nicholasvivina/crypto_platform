@@ -94,4 +94,39 @@ const getMe = async (req, res, next) => {
   } catch (error) { next(error); }
 };
 
-module.exports = { register, verifyPhone, login, requestOTP, refresh, logout, getMe };
+const forgotPassword = async (req, res, next) => {
+  try {
+    const { phone } = req.body;
+    const result = await authService.forgotPassword(phone, req.ip);
+    successResponse(res, result, 'Reset OTP sent successfully');
+  } catch (error) { next(error); }
+};
+
+const resetPassword = async (req, res, next) => {
+  try {
+    const { phone, otp, password } = req.body;
+    const result = await authService.resetPassword(phone, otp, password, req.ip);
+    successResponse(res, result, 'Password reset successfully');
+  } catch (error) { next(error); }
+};
+
+const changePassword = async (req, res, next) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const result = await authService.changePassword(req.user._id, currentPassword, newPassword, req.ip);
+    successResponse(res, result, 'Password changed successfully');
+  } catch (error) { next(error); }
+};
+
+module.exports = {
+  register,
+  verifyPhone,
+  login,
+  requestOTP,
+  refresh,
+  logout,
+  getMe,
+  forgotPassword,
+  resetPassword,
+  changePassword,
+};

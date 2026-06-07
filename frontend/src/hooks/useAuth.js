@@ -16,7 +16,12 @@ export const useAuth = () => {
       const { data } = await authAPI.login(credentials);
       if (data.data.requires2FA) return { requires2FA: true, userId: data.data.userId };
       dispatch(setCredentials({ user: data.data.user, accessToken: data.data.accessToken }));
-      navigate('/dashboard');
+      const userRole = data.data.user?.role;
+      if (userRole === 'admin' || userRole === 'super_admin') {
+        navigate('/admin');
+      } else {
+        navigate('/dashboard');
+      }
       toast.success('Welcome back!');
       return { success: true };
     } catch (err) {

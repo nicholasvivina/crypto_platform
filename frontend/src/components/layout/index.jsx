@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard, TrendingUp, Wallet, BarChart3, Settings,
   Bell, LogOut, ChevronLeft, ChevronRight, Zap, Shield,
-  Users, Menu, X, Activity, CreditCard, Gift
+  Users, Menu, X, Activity, CreditCard, Gift, Brain
 } from 'lucide-react';
 import { toggleSidebar } from '../../store/slices/uiSlice';
 import { useAuth } from '../../hooks/useAuth';
@@ -19,6 +19,7 @@ const NAV = [
   { path: '/wallet',     icon: Wallet,            label: 'Wallet' },
   { path: '/payments',   icon: CreditCard,        label: 'Payments' },
   { path: '/referral',   icon: Gift,              label: 'Referrals' },
+  { path: '/ai-predictions', icon: Brain,          label: 'AI Predictions' },
   { path: '/kyc',        icon: Shield,            label: 'KYC',        badge: null },
   { path: '/settings',   icon: Settings,          label: 'Settings' },
 ];
@@ -31,6 +32,7 @@ export const Sidebar = () => {
   const dispatch = useDispatch();
   const { sidebarOpen } = useSelector((s) => s.ui);
   const { user, logout } = useAuth();
+  const { totalUSDT } = useSelector((s) => s.wallet);
   const location = useLocation();
 
   const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
@@ -130,13 +132,25 @@ export const Sidebar = () => {
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 className="flex-1 min-w-0"
               >
-                <p className="text-sm font-medium text-white truncate">{user?.firstName} {user?.lastName}</p>
-                <p className="text-xs text-slate-500 truncate">{user?.kycStatus}</p>
+                <p className="text-sm font-medium text-white truncate leading-tight">{user?.firstName} {user?.lastName}</p>
+                <p className="text-[10px] font-mono text-brand-400 mt-0.5 leading-none">
+                  {totalUSDT.toFixed(2)} USDT
+                </p>
+                <div className="flex items-center mt-1">
+                  <span className={cn(
+                    "text-[8px] px-1 py-0.5 rounded font-bold uppercase tracking-wider leading-none",
+                    user?.kycStatus === 'approved' ? "bg-green-500/10 text-green-400 border border-green-500/20" :
+                    user?.kycStatus === 'submitted' ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" :
+                    "bg-slate-500/10 text-slate-400 border border-slate-700/50"
+                  )}>
+                    {user?.kycStatus || 'pending'}
+                  </span>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
           {sidebarOpen && (
-            <button onClick={logout} className="text-slate-500 hover:text-accent-red transition-colors p-1 rounded-lg hover:bg-accent-red/10">
+            <button onClick={logout} className="text-slate-500 hover:text-accent-red transition-colors p-1 rounded-lg hover:bg-accent-red/10 shrink-0">
               <LogOut size={15} />
             </button>
           )}

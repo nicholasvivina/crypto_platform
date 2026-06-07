@@ -217,3 +217,6 @@ export const Tooltip = ({ children, content }) => (
     </div>
   </div>
 );
+
+export { MockRazorpayModal } from './MockRazorpayModal';
+

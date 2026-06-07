@@ -18,5 +18,8 @@ router.post('/request-otp', otpRateLimit, validateRequestOTP, authController.req
 router.post('/refresh', rateLimit(20, 900, 'refresh'), authController.refresh);
 router.post('/logout', authenticate, authController.logout);
 router.get('/me', authenticate, authController.getMe);
+router.post('/forgot-password', otpRateLimit, authController.forgotPassword);
+router.post('/reset-password', otpRateLimit, authController.resetPassword);
+router.post('/change-password', authenticate, authController.changePassword);
 
 module.exports = router;

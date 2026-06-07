@@ -43,6 +43,28 @@ const initSockets = (io) => {
     });
   });
 
+  // Subscribe to Redis PubSub for all supported trading pairs
+  const { subscriber } = require('../config/redis');
+  const { SUPPORTED_PAIRS } = require('../config/constants');
+
+  SUPPORTED_PAIRS.forEach((pair) => {
+    subscriber.subscribe(`market:${pair}`).catch((err) => {
+      logger.error(`Failed to subscribe to Redis market channel for ${pair}: ${err.message}`);
+    });
+  });
+
+  subscriber.on('message', (channel, message) => {
+    if (channel.startsWith('market:')) {
+      try {
+        const pair = channel.replace('market:', '');
+        const ticker = JSON.parse(message);
+        io.to(`pair:${pair}`).emit('price:update', ticker);
+      } catch (err) {
+        logger.error(`Error parsing or emitting Redis PubSub price update: ${err.message}`);
+      }
+    }
+  });
+
   logger.info('Socket.io initialized');
 };
 

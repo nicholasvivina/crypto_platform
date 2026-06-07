@@ -4,7 +4,7 @@ const { Wallet, AuditLog } = require('../../models');
 const { SUPPORTED_ASSETS } = require('../../config/constants');
 const { issueTokenPair } = require('./token.service');
 const { sendOTP, verifyOTPToken } = require('./otp.service');
-const { AuthError, ConflictError, ForbiddenError } = require('../../errors');
+const { AuthError, ConflictError, ForbiddenError, NotFoundError } = require('../../errors');
 const logger = require('../../config/logger');
 
 /**
@@ -83,7 +83,14 @@ const verifyPhone = async (phone, otp, ipAddress) => {
  * Login with phone + password
  */
 const login = async ({ phone, password }, deviceInfo, ipAddress) => {
-  const user = await User.findOne({ phone }).select('+password');
+  const cleanPhone = phone.replace(/\D/g, '');
+  const user = await User.findOne({
+    $or: [
+      { phone },
+      { phone: `+91${cleanPhone}` },
+      { phone: cleanPhone.slice(-10) }
+    ]
+  }).select('+password');
 
   if (!user) throw new AuthError('Invalid credentials', 'INVALID_CREDENTIALS');
   if (!user.isActive) throw new ForbiddenError('Account is deactivated', 'ACCOUNT_INACTIVE');
@@ -149,4 +156,73 @@ const requestLoginOTP = async (phone, ipAddress) => {
   return { message: 'OTP sent to your registered phone number' };
 };
 
-module.exports = { register, verifyPhone, login, requestLoginOTP };
+/**
+ * Forgot password - send OTP
+ */
+const forgotPassword = async (phone, ipAddress) => {
+  const user = await User.findOne({ phone });
+  if (!user) throw new NotFoundError('Phone number not registered', 'USER_NOT_FOUND');
+  if (!user.isActive || user.isBlocked) throw new ForbiddenError('Account not accessible', 'ACCOUNT_INACTIVE');
+
+  await sendOTP(phone, ipAddress);
+  return { message: 'OTP sent to your registered phone number' };
+};
+
+/**
+ * Reset password using OTP
+ */
+const resetPassword = async (phone, otp, newPassword, ipAddress) => {
+  await verifyOTPToken(phone, otp);
+
+  const user = await User.findOne({ phone });
+  if (!user) throw new NotFoundError('User not found', 'USER_NOT_FOUND');
+
+  user.password = newPassword;
+  user.loginAttempts = 0;
+  user.lockUntil = null;
+  await user.save();
+
+  await AuditLog.create({
+    userId: user._id,
+    action: 'PASSWORD_RESET',
+    ipAddress,
+    severity: 'medium',
+  });
+
+  return { message: 'Password reset successful' };
+};
+
+/**
+ * Change password for logged in user
+ */
+const changePassword = async (userId, currentPassword, newPassword, ipAddress) => {
+  const user = await User.findById(userId).select('+password');
+  if (!user) throw new NotFoundError('User not found', 'USER_NOT_FOUND');
+
+  const isPasswordValid = await user.comparePassword(currentPassword);
+  if (!isPasswordValid) {
+    throw new AuthError('Incorrect current password', 'INCORRECT_CURRENT_PASSWORD');
+  }
+
+  user.password = newPassword;
+  await user.save();
+
+  await AuditLog.create({
+    userId: user._id,
+    action: 'PASSWORD_CHANGED',
+    ipAddress,
+    severity: 'medium',
+  });
+
+  return { message: 'Password updated successfully' };
+};
+
+module.exports = {
+  register,
+  verifyPhone,
+  login,
+  requestLoginOTP,
+  forgotPassword,
+  resetPassword,
+  changePassword,
+};

@@ -223,3 +223,5 @@ export const OtpVerifyPage = ({ phone: propPhone, onSuccess }) => {
     </AuthLayout>
   );
 };
+
+export { ForgotPasswordPage } from './ForgotPasswordPage';

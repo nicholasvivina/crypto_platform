@@ -9,6 +9,9 @@ export const authAPI = {
   refresh: () => api.post('/auth/refresh'),
   logout: () => api.post('/auth/logout'),
   getMe: () => api.get('/auth/me'),
+  forgotPassword: (phone) => api.post('/auth/forgot-password', { phone }),
+  resetPassword: (phone, otp, password) => api.post('/auth/reset-password', { phone, otp, password }),
+  changePassword: (currentPassword, newPassword) => api.post('/auth/change-password', { currentPassword, newPassword }),
 };
 
 // ─── Market API ───────────────────────────────────────────────────────────────
@@ -27,6 +30,7 @@ export const walletAPI = {
   getTransactions: (params) => api.get('/wallets/transactions', { params }),
   deposit: (data) => api.post('/wallets/deposit', data),
   withdraw: (data) => api.post('/wallets/withdraw', data),
+  withdrawFiat: (data) => api.post('/wallets/withdraw-fiat', data),
   getDepositAddress: (asset) => api.get(`/wallets/deposit-address/${asset}`),
 };
 
@@ -57,4 +61,19 @@ export const paymentAPI = {
 export const aiAPI = {
   getPrediction: (pair) => api.get(`/ai/predict/${pair}`),
   getSignals: () => api.get('/ai/signals'),
+};
+
+// ─── KYC API ──────────────────────────────────────────────────────────────────
+export const kycAPI = {
+  submit: (formData) => api.post('/users/kyc/submit', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  getStatus: () => api.get('/users/kyc/status'),
+};
+
+// ─── Admin API ────────────────────────────────────────────────────────────────
+export const adminAPI = {
+  getStats: () => api.get('/admin/stats'),
+  getUsers: (params) => api.get('/admin/users', { params }),
+  updateUserStatus: (id, data) => api.patch(`/admin/users/${id}`, data),
 };

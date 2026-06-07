@@ -35,11 +35,15 @@ app.use(helmet({
 // ─── CORS ─────────────────────────────────────────────────────────────────────
 app.use(cors({
   origin: (origin, callback) => {
-    const allowed = [config.clientUrl, 'http://localhost:3000'];
-    if (!origin || allowed.includes(origin)) {
+    if (config.env === 'development' || config.env === 'test') {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      const allowed = [config.clientUrl, 'http://localhost:3000', 'http://localhost:5173', 'http://localhost', 'http://127.0.0.1'];
+      if (!origin || allowed.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
     }
   },
   credentials: true,
@@ -71,6 +75,7 @@ app.use(sanitizeInput);            // XSS sanitization
 app.use(auditLog);                 // Auto audit logging
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
+app.use('/uploads', express.static(require('path').join(__dirname, '../uploads')));
 app.use('/api/v1', routes);
 
 // ─── 404 Handler ─────────────────────────────────────────────────────────────

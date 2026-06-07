@@ -1,10 +1,44 @@
 'use strict';
 const express = require('express');
 const Joi = require('joi');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 const { ValidationError } = require('../errors');
 const { authenticate, requireRole, requireKYC, rateLimit } = require('../middleware');
 const { walletController, orderController, userController, paymentController, adminController } = require('../controllers');
 const { ROLES } = require('../config/constants');
+
+// Configure Multer for local uploads
+const uploadDir = path.join(__dirname, '../../uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|pdf/;
+    const ext = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mime = allowedTypes.test(file.mimetype);
+    if (ext && mime) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only images and PDFs are allowed'));
+    }
+  }
+});
 
 const validate = (schema) => (req, res, next) => {
   const { error, value } = schema.validate(req.body, { abortEarly: false, stripUnknown: true });
@@ -24,6 +58,7 @@ walletRouter.get('/', walletController.getWallets);
 walletRouter.get('/transactions', walletController.getTransactions);
 walletRouter.post('/deposit', validate(Joi.object({ asset: Joi.string().required(), amount: Joi.number().positive().required(), txHash: Joi.string(), fromAddress: Joi.string(), network: Joi.string() })), walletController.deposit);
 walletRouter.post('/withdraw', rateLimit(5, 3600, 'withdraw'), validate(Joi.object({ asset: Joi.string().required(), amount: Joi.number().positive().required(), toAddress: Joi.string().required(), network: Joi.string().required(), otp: Joi.string().length(6).required(), otpVerified: Joi.boolean() })), walletController.withdraw);
+walletRouter.post('/withdraw-fiat', rateLimit(5, 3600, 'withdraw'), validate(Joi.object({ amount: Joi.number().positive().required(), upiId: Joi.string(), bankAccount: Joi.string(), bankIfsc: Joi.string(), otp: Joi.string().length(6).required() })), walletController.withdrawFiat);
 
 // ─── Order Routes ─────────────────────────────────────────────────────────────
 const orderRouter = express.Router();
@@ -40,6 +75,8 @@ userRouter.get('/profile', userController.getProfile);
 userRouter.patch('/profile', validate(Joi.object({ firstName: Joi.string().min(2).max(50), lastName: Joi.string().min(2).max(50) })), userController.updateProfile);
 userRouter.get('/notifications', userController.getNotifications);
 userRouter.patch('/notifications/:id/read', userController.markNotificationRead);
+userRouter.post('/kyc/submit', upload.fields([{ name: 'document', maxCount: 1 }, { name: 'selfie', maxCount: 1 }]), userController.submitKYC);
+userRouter.get('/kyc/status', userController.getKYCStatus);
 
 // ─── Payment Routes ───────────────────────────────────────────────────────────
 const paymentRouter = express.Router();

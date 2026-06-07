@@ -81,7 +81,12 @@ const verifyOTPToken = async (phone, submittedOtp) => {
  * MSG91 OTP delivery
  */
 const deliverOTP = async (phone, otp) => {
-  if (config.env === 'development') {
+  // Always log OTP code to terminal console for easy testing/demo
+  console.log(`\n\n==============================================`);
+  console.log(`[OTP SERVICE] OTP for ${phone}: ${otp}`);
+  console.log(`==============================================\n\n`);
+
+  if (config.env === 'development' || !config.msg91.authKey || config.msg91.authKey.includes('placeholder') || config.msg91.authKey === '') {
     logger.info(`[DEV] OTP for ${phone}: ${otp}`);
     return;
   }

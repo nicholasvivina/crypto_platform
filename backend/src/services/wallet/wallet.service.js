@@ -65,4 +65,70 @@ const getTransactions = async (userId, { type, page = 1, limit = 20 }) => {
   return { transactions, total, page, limit };
 };
 
-module.exports = { getWallets, deposit, initiateWithdrawal, getTransactions };
+const initiateFiatWithdrawal = async ({ userId, amount, upiId, bankAccount, bankIfsc }) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+  try {
+    const asset = 'USDT';
+    const wallet = await Wallet.findOne({ userId, asset }).session(session);
+    if (!wallet) throw new NotFoundError('USDT wallet not found');
+
+    const inrAmount = parseFloat(amount);
+    // Let's convert INR to USDT. Let's assume 1 USDT = 85 INR.
+    const usdtRate = 85.0;
+    const usdtAmount = inrAmount / usdtRate;
+
+    // Apply withdrawal fee (2% fiat fee as per config constant FEE.WITHDRAWAL_FIAT_PERCENT)
+    const { FEE } = require('../../config/constants');
+    const feePercent = FEE.WITHDRAWAL_FIAT_PERCENT || 0.02;
+    const feeUsdt = usdtAmount * feePercent;
+    const totalUsdtNeeded = usdtAmount + feeUsdt;
+
+    const available = parseFloat(wallet.balance.toString()) - parseFloat(wallet.lockedBalance.toString());
+    if (available < totalUsdtNeeded) {
+      throw new ValidationError(`Insufficient USDT balance. Need equivalent of ${totalUsdtNeeded.toFixed(2)} USDT (₹${inrAmount.toFixed(2)} + 2% fee)`);
+    }
+
+    // Lock the balance
+    wallet.lockedBalance = mongoose.Types.Decimal128.fromString(
+      (parseFloat(wallet.lockedBalance.toString()) + totalUsdtNeeded).toFixed(8)
+    );
+    await wallet.save({ session });
+
+    // Call simulated Razorpay Payout service
+    const rzService = require('../payment/razorpay.service');
+    const payoutResult = await rzService.createPayout({
+      userId,
+      amount: inrAmount,
+      upiId,
+      bankAccount,
+      bankIfsc
+    });
+
+    // Create a transaction record
+    const tx = await Transaction.create([{
+      userId,
+      type: TRANSACTION_TYPES.WITHDRAWAL,
+      asset: 'INR',
+      amount: mongoose.Types.Decimal128.fromString(inrAmount.toFixed(2)),
+      fee: mongoose.Types.Decimal128.fromString((inrAmount * feePercent).toFixed(2)),
+      status: TRANSACTION_STATUS.PROCESSING,
+      toAddress: upiId || `${bankAccount}@${bankIfsc}`,
+      network: 'fiat',
+      metadata: {
+        usdtAmount: totalUsdtNeeded.toFixed(8),
+        payoutId: payoutResult.payoutId,
+      }
+    }], { session });
+
+    await session.commitTransaction();
+    return { transaction: tx[0] };
+  } catch (e) {
+    await session.abortTransaction();
+    throw e;
+  } finally {
+    session.endSession();
+  }
+};
+
+module.exports = { getWallets, deposit, initiateWithdrawal, getTransactions, initiateFiatWithdrawal };

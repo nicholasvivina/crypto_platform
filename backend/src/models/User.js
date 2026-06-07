@@ -51,6 +51,38 @@ const userSchema = new mongoose.Schema(
       enum: Object.values(KYC_STATUS),
       default: KYC_STATUS.PENDING,
     },
+    kycDocumentType: {
+      type: String,
+      default: null,
+    },
+    kycDocumentUrl: {
+      type: String,
+      default: null,
+    },
+    kycSelfieUrl: {
+      type: String,
+      default: null,
+    },
+    kycNationality: {
+      type: String,
+      default: null,
+    },
+    kycDob: {
+      type: Date,
+      default: null,
+    },
+    kycAddress: {
+      type: String,
+      default: null,
+    },
+    kycSubmittedAt: {
+      type: Date,
+      default: null,
+    },
+    kycReviewedAt: {
+      type: Date,
+      default: null,
+    },
     twoFactorEnabled: {
       type: Boolean,
       default: false,

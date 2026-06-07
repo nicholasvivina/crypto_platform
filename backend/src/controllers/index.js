@@ -26,8 +26,22 @@ const walletController = {
   },
   withdraw: async (req, res, next) => {
     try {
-      const result = await walletSvc.initiateWithdrawal({ userId: req.user._id, ...req.body, otpVerified: req.body.otpVerified || false });
+      const { otp } = req.body;
+      const otpService = require('../services/auth/otp.service');
+      await otpService.verifyOTPToken(req.user.phone, otp);
+
+      const result = await walletSvc.initiateWithdrawal({ userId: req.user._id, ...req.body, otpVerified: true });
       successResponse(res, result, 'Withdrawal initiated');
+    } catch (e) { next(e); }
+  },
+  withdrawFiat: async (req, res, next) => {
+    try {
+      const { otp } = req.body;
+      const otpService = require('../services/auth/otp.service');
+      await otpService.verifyOTPToken(req.user.phone, otp);
+
+      const result = await walletSvc.initiateFiatWithdrawal({ userId: req.user._id, ...req.body });
+      successResponse(res, result, 'Fiat withdrawal initiated');
     } catch (e) { next(e); }
   },
 };
@@ -91,6 +105,37 @@ const userController = {
     try {
       await Notification.findOneAndUpdate({ _id: req.params.id, userId: req.user._id }, { isRead: true });
       successResponse(res, {}, 'Notification marked as read');
+    } catch (e) { next(e); }
+  },
+  submitKYC: async (req, res, next) => {
+    try {
+      const { nationality, dob, address, documentType } = req.body;
+      const files = req.files || {};
+      
+      const documentUrl = files.document ? `/uploads/${files.document[0].filename}` : null;
+      const selfieUrl = files.selfie ? `/uploads/${files.selfie[0].filename}` : null;
+
+      const user = await User.findById(req.user._id);
+      if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+
+      user.kycStatus = 'submitted';
+      user.kycNationality = nationality;
+      if (dob) user.kycDob = new Date(dob);
+      user.kycAddress = address;
+      user.kycDocumentType = documentType;
+      if (documentUrl) user.kycDocumentUrl = documentUrl;
+      if (selfieUrl) user.kycSelfieUrl = selfieUrl;
+      user.kycSubmittedAt = new Date();
+      
+      await user.save();
+
+      successResponse(res, { user }, 'KYC document submitted successfully');
+    } catch (e) { next(e); }
+  },
+  getKYCStatus: async (req, res, next) => {
+    try {
+      const user = await User.findById(req.user._id).select('kycStatus kycNationality kycDob kycAddress kycDocumentType kycDocumentUrl kycSelfieUrl kycSubmittedAt kycReviewedAt');
+      successResponse(res, { kyc: user });
     } catch (e) { next(e); }
   },
 };

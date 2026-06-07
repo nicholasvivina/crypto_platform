@@ -16,7 +16,7 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: [config.clientUrl, 'http://localhost:3000'],
+    origin: [config.clientUrl, 'http://localhost:3000', 'http://localhost', 'http://127.0.0.1'],
     credentials: true,
   },
   pingTimeout: 60000,
