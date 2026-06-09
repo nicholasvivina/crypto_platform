@@ -139,7 +139,7 @@ const rateLimit = (points = 10, duration = 60, keyPrefix = 'rl') => async (req, 
 
 // ─── Error Handler ────────────────────────────────────────────────────────────
 
-const errorHandler = (err, req, res, next) => {
+const errorHandler = (err, req, res, _next) => {
   const { AppError } = require('../errors');
 
   if (err instanceof AppError && err.isOperational) {
